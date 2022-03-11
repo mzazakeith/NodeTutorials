@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const authRouter = require('./routes/auth');
+const postRouter = require('./routes/posts');
 const app = express();
 
 //DB
@@ -15,6 +16,7 @@ app.use(express.json());
 
 //Import Routes
 app.use('/api/user', authRouter);
+app.use('/api/post', postRouter);
 
 const port = process.env.PORT || 3002;
 app.listen(port, ()=>{
