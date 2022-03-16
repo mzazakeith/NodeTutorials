@@ -3,7 +3,7 @@ const User = require("../models/User");
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const textAPI = require('../services/sms');
-const {validateRegistration, validateLogin} = require("../validation");
+const {validateRegistration, validateLogin, validateOTP} = require("../validation");
 const {generateOTP} = require("../services/otp");
 const router = express.Router();
 
@@ -23,6 +23,8 @@ router.post("/register", async (req, res)=>{
     // hash the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(req.body.password,salt);
+
+    //generate otp
     const otp = await generateOTP();
 
     //The new user object
@@ -36,6 +38,7 @@ router.post("/register", async (req, res)=>{
     // saving the user object
     try{
         const newUser = await user.save();
+        // sending the otp
         try{
             await textAPI.sendSMS(newUser.phoneNumber, newUser.otp);
         }catch (e){
@@ -45,6 +48,53 @@ router.post("/register", async (req, res)=>{
     }catch (e) {
         res.status(400).json({message:e.message});
     }
+});
+
+// OTP confirmation
+router.post("/register/otp/confirm", async(req, res)=>{
+    // Validation of data
+    const result = validateOTP(req.body);
+    const { error} = result;
+    if(error) return res.status(400).send(error.details[0].message);
+
+    // checking if user exists
+    const user = await User.findOne({phoneNumber:req.body.phoneNumber});
+    if(!user) return res.status(400).json({message:"User not found. Please try again"});
+
+
+    // checking if otp match
+    const validOTP = (req.body.oneTimePassword === user.otp);
+    if(!validOTP) return res.status(400).json({message:"Wrong OTP. Please try again."});
+
+
+    // confirm OTP
+    const confirmedUser = await User.findByIdAndUpdate(user._id,{
+        $set: { activated: true },
+    })
+
+    res.status(200).json({message:`User with phone number: ${confirmedUser.phoneNumber} successfully confirmed`});
+});
+
+// ResendOTP
+router.post("/register/otp/resend", async(req, res)=>{
+    // checking if user exists
+    const user = await User.findOne({phoneNumber:req.body.phoneNumber});
+    if(!user) return res.status(400).json({message:"User not found. Please try again"});
+
+    // generate new otp
+    const otp = await generateOTP();
+
+    // update the user's otp
+    const updatedUser = await User.findByIdAndUpdate(user._id,{
+        $set: { otp: otp},
+    })
+
+    try{
+        await textAPI.sendSMS(updatedUser.phoneNumber, otp);
+    }catch (e){
+        res.status(400).json({info:"OTP not sent",message:e.message});
+    }
+    res.status(200).json({message:`New OTP sent to ${updatedUser.phoneNumber}`});
 });
 
 //Login
