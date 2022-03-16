@@ -159,6 +159,10 @@ router.post("/login", async (req, res)=>{
     const user = await User.findOne({phoneNumber:req.body.phoneNumber});
     if(!user) return res.status(400).json({message:"Bad credentials. Please sign up or put the correct credentials"});
 
+    //checking if user is enabled
+    const enabled = user.activated
+    if(!enabled) return res.status(400).json({message:"Account not enabled. Please use forgot password"});
+
     // check if password match
     const validPassword = await bcrypt.compare(req.body.password, user.password);
     if(!validPassword) return res.status(400).json({message:"Bad credentials. Please sign up or put the correct credentials"});
