@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const authenticated = require('./verifyToken');
+const authenticated = require('../services/verifyJWToken');
 const User = require("../models/User");
 
 //Seeing how we can use middleware created to a route t make it essentially private

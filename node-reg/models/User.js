@@ -11,6 +11,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         required:true
     },
+    phoneNumber:{
+        type: String,
+        required:true
+    },
     password:{
         type: String,
         required:true,
@@ -19,6 +23,14 @@ const userSchema = new mongoose.Schema({
     date_created:{
         type:Date,
         default:Date.now()
+    },
+    activated:{
+        type: Boolean,
+        default: false,
+    },
+    otp:{
+        type: String,
+        required: true,
     }
 })
 

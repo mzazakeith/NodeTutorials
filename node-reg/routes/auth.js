@@ -2,7 +2,9 @@ const express = require('express');
 const User = require("../models/User");
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const textAPI = require('../services/sms');
 const {validateRegistration, validateLogin} = require("../validation");
+const {generateOTP} = require("../services/otp");
 const router = express.Router();
 
 // Register
@@ -14,21 +16,31 @@ router.post("/register", async (req, res)=>{
 
     //checking if the email is there
     const emailExist = await User.findOne({email:req.body.email});
+    const phoneExist = await User.findOne({phoneNumber:req.body.phoneNumber});
+    if(phoneExist) return res.status(409).json({message:"User with this phone number already exists. Please Log In"});
     if(emailExist) return res.status(409).json({message:"User with this email already exists. Please Log In"});
 
     // hash the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(req.body.password,salt);
+    const otp = await generateOTP();
 
     //The new user object
     const user = new User({
         name:req.body.name,
         email:req.body.email,
+        phoneNumber: req.body.phoneNumber,
+        otp:otp,
         password:hashedPassword,
     })
     // saving the user object
     try{
         const newUser = await user.save();
+        try{
+            await textAPI.sendSMS(newUser.phoneNumber, newUser.otp);
+        }catch (e){
+            res.status(400).json({info:"User saved but OTP not sent",message:e.message});
+        }
         res.status(201).json(newUser);
     }catch (e) {
         res.status(400).json({message:e.message});

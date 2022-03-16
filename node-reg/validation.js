@@ -5,6 +5,7 @@ const validateRegistration = (user) =>{
         name : Joi.string().min(4).required(),
         email : Joi.string().min(3).required().email(),
         password: Joi.string().min(8).required(),
+        phoneNumber: Joi.string().min(7).max(15).required(),
     })
     return schema.validate(user);
 }
