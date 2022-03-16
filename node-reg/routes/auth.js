@@ -142,7 +142,7 @@ router.post("/register/password/reset/password", async(req, res)=>{
 
     // update the password
     const updatedUser = await User.findByIdAndUpdate(user._id,{
-        $set: { password: hashedPassword },
+        $set: { password: hashedPassword, activated:true },
     })
 
     res.status(200).json({message:`User with phone number: ${updatedUser.phoneNumber} password changed succesfully`});
