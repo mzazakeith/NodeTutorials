@@ -3,7 +3,7 @@ const User = require("../models/User");
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const textAPI = require('../services/sms');
-const {validateRegistration, validateLogin, validateOTP} = require("../validation");
+const {validateRegistration, validateLogin, validateOTP, validateForgotOtp} = require("../validation");
 const {generateOTP} = require("../services/otp");
 const router = express.Router();
 
@@ -14,7 +14,7 @@ router.post("/register", async (req, res)=>{
     const {error} = result;
     if(error) return res.status(400).send(error.details[0].message);
 
-    //checking if the email is there
+    //checking if the email is there and phone number is there
     const emailExist = await User.findOne({email:req.body.email});
     const phoneExist = await User.findOne({phoneNumber:req.body.phoneNumber});
     if(phoneExist) return res.status(409).json({message:"User with this phone number already exists. Please Log In"});
@@ -97,6 +97,57 @@ router.post("/register/otp/resend", async(req, res)=>{
     res.status(200).json({message:`New OTP sent to ${updatedUser.phoneNumber}`});
 });
 
+// Send Forgot Password OTP
+router.post("/register/password/reset/otp", async(req,res)=>{
+    // checking if user exists
+    const user = await User.findOne({phoneNumber:req.body.phoneNumber});
+    if(!user) return res.status(400).json({message:"User not found. Please try again"});
+
+
+    // generate new otp
+    const otp = await generateOTP();
+
+    // update the user's otp
+    const updatedUser = await User.findByIdAndUpdate(user._id,{
+        $set: { otp: otp},
+    });
+
+    //send user new otp
+    try{
+        await textAPI.sendSMS(updatedUser.phoneNumber, otp);
+    }catch (e){
+        res.status(400).json({info:"OTP not sent",message:e.message});
+    }
+    res.status(200).json({message:`Forgot Password OTP sent to: ${updatedUser.phoneNumber}`});
+});
+
+// Change Password
+router.post("/register/password/reset/password", async(req, res)=>{
+    // Validation of data
+    const result = validateForgotOtp(req.body);
+    const { error} = result;
+    if(error) return res.status(400).send(error.details[0].message);
+
+    // checking if user exists
+    const user = await User.findOne({phoneNumber:req.body.phoneNumber});
+    if(!user) return res.status(400).json({message:"User not found. Please try again"});
+
+    // checking if otp match
+    const validOTP = (req.body.oneTimePassword === user.otp);
+    if(!validOTP) return res.status(400).json({message:"Wrong OTP. Please try again."});
+
+    // hash the password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(req.body.password,salt);
+
+    // update the password
+    const updatedUser = await User.findByIdAndUpdate(user._id,{
+        $set: { password: hashedPassword },
+    })
+
+    res.status(200).json({message:`User with phone number: ${updatedUser.phoneNumber} password changed succesfully`});
+})
+
 //Login
 router.post("/login", async (req, res)=>{
     // Validation of data
@@ -105,7 +156,7 @@ router.post("/login", async (req, res)=>{
     if(error) return res.status(400).send(error.details[0].message);
 
     //checking if the email is there
-    const user = await User.findOne({email:req.body.email});
+    const user = await User.findOne({phoneNumber:req.body.phoneNumber});
     if(!user) return res.status(400).json({message:"Bad credentials. Please sign up or put the correct credentials"});
 
     // check if password match

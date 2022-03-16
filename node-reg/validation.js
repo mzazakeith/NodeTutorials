@@ -12,7 +12,7 @@ const validateRegistration = (user) =>{
 
 const validateLogin = (user) =>{
     const schema = Joi.object({
-        email : Joi.string().min(3).required().email(),
+        phoneNumber : Joi.string().min(7).max(15).required(),
         password: Joi.string().min(8).required(),
     })
     return schema.validate(user);
@@ -26,6 +26,16 @@ const validateOTP = (otp) =>{
     return schema.validate(otp)
 }
 
+const validateForgotOtp = (otp)=>{
+    const schema = Joi.object({
+        password:Joi.string().min(8).required(),
+        phoneNumber: Joi.string().min(7).max(15).required(),
+        oneTimePassword : Joi.string().min(6).max(6).required(),
+    })
+    return schema.validate(otp)
+}
+
 module.exports.validateRegistration = validateRegistration;
 module.exports.validateLogin = validateLogin;
 module.exports.validateOTP = validateOTP;
+module.exports.validateForgotOtp = validateForgotOtp;
